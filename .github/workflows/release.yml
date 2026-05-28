@@ -60,3 +60,25 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      # El AppImage bundlea libwayland-*, que choca con el compositor del usuario
+      # (pantalla en blanco / EGL_BAD_PARAMETER en Wayland). Las quitamos para que
+      # use las del sistema y re-subimos el AppImage corregido a la release.
+      - name: Fix AppImage Wayland libs (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd src-tauri/target/release/bundle/appimage
+          appimage=$(ls *.AppImage | head -1)
+          echo "Patching $appimage"
+          ./"$appimage" --appimage-extract >/dev/null
+          rm -f squashfs-root/usr/lib/libwayland-client.so.0 \
+                squashfs-root/usr/lib/libwayland-cursor.so.0 \
+                squashfs-root/usr/lib/libwayland-egl.so.1 \
+                squashfs-root/usr/lib/libwayland-server.so.0
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run squashfs-root "$appimage"
+          gh release upload "${GITHUB_REF_NAME}" "$appimage" --clobber --repo "${GITHUB_REPOSITORY}"
