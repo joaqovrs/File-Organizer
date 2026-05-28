@@ -12,28 +12,35 @@ interface OrganizeResult {
 }
 
 // Estados posibles de la app
-type AppState = "idle" | "organizing" | "done" | "error";
+type AppState = "idle" | "confirming" | "organizing" | "done" | "error";
 
 function App() {
   const [state, setState] = useState<AppState>("idle");
   const [result, setResult] = useState<OrganizeResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [selectedPath, setSelectedPath] = useState<string>("");
 
-  async function handleOrganize() {
+  async function handleSelectFolder() {
     // Abre el selector de carpetas nativo del sistema operativo
     const selected = await open({ directory: true, multiple: false });
 
     // El usuario cerró el diálogo sin seleccionar nada
     if (!selected) return;
 
-    setState("organizing");
+    // Guarda la carpeta elegida y pide confirmación antes de organizar
+    setSelectedPath(selected as string);
     setResult(null);
     setErrorMsg("");
+    setState("confirming");
+  }
+
+  async function handleConfirm() {
+    setState("organizing");
 
     try {
       // Llama al comando Rust `organize_files` con la ruta elegida
       const res = await invoke<OrganizeResult>("organize_files", {
-        path: selected as string,
+        path: selectedPath,
       });
       setResult(res);
       setState("done");
@@ -48,6 +55,7 @@ function App() {
     setState("idle");
     setResult(null);
     setErrorMsg("");
+    setSelectedPath("");
   }
 
   return (
@@ -68,9 +76,28 @@ function App() {
             Selecciona una carpeta y todos sus archivos serán movidos
             a subcarpetas según su extensión.
           </p>
-          <button className="btn-primary" onClick={handleOrganize}>
+          <button className="btn-primary" onClick={handleSelectFolder}>
             Seleccionar carpeta
           </button>
+        </div>
+      )}
+
+      {/* Estado: carpeta elegida, esperando confirmación */}
+      {state === "confirming" && (
+        <div className="card">
+          <p className="hint">
+            Se organizarán todos los archivos de esta carpeta:
+          </p>
+          <p className="path-display">{selectedPath}</p>
+          <p className="hint">¿Deseas continuar?</p>
+          <div className="actions">
+            <button className="btn-primary" onClick={handleConfirm}>
+              Confirmar y organizar
+            </button>
+            <button className="btn-secondary" onClick={reset}>
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
