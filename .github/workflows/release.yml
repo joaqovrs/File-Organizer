@@ -57,6 +57,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'File Organizer ${{ github.ref_name }}'
           releaseBody: 'Descargá el instalador correspondiente a tu sistema operativo desde los assets de abajo.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
